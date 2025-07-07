@@ -1,24 +1,23 @@
-# Use a stable Python base image
 FROM python:3.9-slim-buster
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies early (so layer can be cached)
+# Install system dependencies needed for audio & building packages
 RUN apt-get update && \
-    apt-get install -y ffmpeg && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y ffmpeg gcc python3-dev libffi-dev libssl-dev build-essential && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy and install Python dependencies
 COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of your application
+# Copy app source code into container
 COPY . .
 
-# Optional: set environment variables
+# Unbuffered output (logs show up immediately)
 ENV PYTHONUNBUFFERED=1
 
-# Run your bot
+# Run the bot
 CMD ["python3", "main.py"]

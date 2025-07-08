@@ -9,6 +9,5 @@ services:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     volumes:
-      - .:/app
     working_dir: /app
     command: ["python3", "main.py"]

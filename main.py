@@ -148,7 +148,85 @@ async def on_message(message):
             print(f"[ERROR] yt_dlp or playback failed: {e}")
             await message.channel.send("❌ Failed to play the song.")
 
-# Graceful shutdown
+    elif command == "pause":
+        vc = message.guild.voice_client
+        if vc and vc.is_playing():
+            vc.pause()
+            await message.channel.send("⏸️ Paused playback.")
+        else:
+            await message.channel.send("Nothing is playing to pause.")
+
+    elif command == "resume":
+        vc = message.guild.voice_client
+        if vc and vc.is_paused():
+            vc.resume()
+            await message.channel.send("▶️ Resumed playback.")
+        else:
+            await message.channel.send("Nothing is paused.")
+
+    elif command == "stop":
+        vc = message.guild.voice_client
+        if vc and (vc.is_playing() or vc.is_paused()):
+            vc.stop()
+            await message.channel.send("⏹️ Stopped playback.")
+        else:
+            await message.channel.send("Nothing is playing.")
+
+    elif command == "help":
+        embed = discord.Embed(
+            title="🤖 Bot Commands",
+            description="Here's a list of commands you can use:",
+            color=discord.Color.blurple(),
+            timestamp=datetime.utcnow()
+        )
+        embed.add_field(
+            name="🎵 Audio Commands",
+            value=(
+                "`join` — Join your voice channel\n"
+                "`leave` — Leave the voice channel\n"
+                "`play <song>` — Play music from YouTube\n"
+                "`pause` — Pause the audio\n"
+                "`resume` — Resume playback\n"
+                "`stop` — Stop audio playback"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="💬 Chat Commands",
+            value=(
+                "`@Bot <message>` — Ask the AI anything\n"
+                "You can follow up without @mentioning for 10 minutes"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="❓ Meta",
+            value="`help` — Show this command list",
+            inline=False
+        )
+        embed.set_footer(text="Send '@Bot help' to start a session.")
+        await message.channel.send(embed=embed)
+
+    else:
+        if user_id not in conversation_histories:
+            conversation_histories[user_id] = [
+                {"role": "system", "content": "You are a helpful assistant."}
+            ]
+        conversation_histories[user_id].append({"role": "user", "content": content})
+
+        try:
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=conversation_histories[user_id],
+                max_tokens=150
+            )
+            reply = response.choices[0].message.content
+            conversation_histories[user_id].append({"role": "assistant", "content": reply})
+            await message.channel.send(reply)
+        except Exception as e:
+            print(f"[ERROR] OpenAI API: {e}")
+            await message.channel.send("❌ Couldn't respond right now.")
+
 def handle_exit():
     print("👋 Bot shutting down cleanly...")
     loop = asyncio.get_event_loop()

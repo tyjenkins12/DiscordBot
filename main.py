@@ -48,16 +48,12 @@ async def on_message(message):
     user_id = message.author.id
     now = datetime.utcnow()
 
-    # Remove expired sessions
-    if user_id in active_sessions:
-        if now - active_sessions[user_id] > SESSION_TIMEOUT:
-            active_sessions.pop(user_id, None)
+    if user_id in active_sessions and now - active_sessions[user_id] > SESSION_TIMEOUT:
+        active_sessions.pop(user_id, None)
 
-    # Check if message mentions the bot
     if bot.user in message.mentions:
         content = message.content.replace(f"<@{bot.user.id}>", "").replace(f"<@!{bot.user.id}>", "").strip()
         active_sessions[user_id] = now
-
     elif user_id in active_sessions:
         content = message.content.strip()
     else:
@@ -71,7 +67,6 @@ async def on_message(message):
     command = parts[0].lower() if parts else ''
     args = parts[1] if len(parts) > 1 else ''
 
-    # 🎤 Join voice
     if command == "join":
         if message.author.voice:
             try:
@@ -86,7 +81,6 @@ async def on_message(message):
         else:
             await message.channel.send("You're not in a voice channel.")
 
-    # 👋 Leave voice
     elif command == "leave":
         vc = message.guild.voice_client
         if vc:
@@ -101,7 +95,6 @@ async def on_message(message):
         else:
             await message.channel.send("I'm not in a voice channel.")
 
-    # 🎵 Play music from YouTube
     elif command == "play":
         if not args:
             await message.channel.send("Please provide a song name or YouTube URL.")
@@ -143,7 +136,6 @@ async def on_message(message):
             print(f"[ERROR] yt_dlp or playback failed: {e}")
             await message.channel.send("❌ Failed to play the song.")
 
-    # 🔊 Test known-good audio URL
     elif command == "testaudio":
         vc = message.guild.voice_client
         if not vc and message.author.voice:
@@ -163,7 +155,6 @@ async def on_message(message):
             print(f"[ERROR] Test audio failed: {e}")
             await message.channel.send("❌ Failed to play test audio.")
 
-    # ⏸️ Pause
     elif command == "pause":
         vc = message.guild.voice_client
         if vc and vc.is_playing():
@@ -172,7 +163,6 @@ async def on_message(message):
         else:
             await message.channel.send("Nothing is playing to pause.")
 
-    # ▶️ Resume
     elif command == "resume":
         vc = message.guild.voice_client
         if vc and vc.is_paused():
@@ -181,7 +171,6 @@ async def on_message(message):
         else:
             await message.channel.send("Nothing is paused.")
 
-    # ⏹️ Stop
     elif command == "stop":
         vc = message.guild.voice_client
         if vc and (vc.is_playing() or vc.is_paused()):
@@ -190,7 +179,6 @@ async def on_message(message):
         else:
             await message.channel.send("Nothing is playing.")
 
-    # 📖 Help (rich embed)
     elif command == "help":
         embed = discord.Embed(
             title="🤖 Bot Commands",
@@ -227,7 +215,6 @@ async def on_message(message):
         embed.set_footer(text="Send '@Bot help' to start a session.")
         await message.channel.send(embed=embed)
 
-    # 💬 ChatGPT fallback
     else:
         if user_id not in conversation_histories:
             conversation_histories[user_id] = [
@@ -248,11 +235,15 @@ async def on_message(message):
             print(f"[ERROR] OpenAI API: {e}")
             await message.channel.send("❌ Couldn't respond right now.")
 
-# Graceful shutdown
 def handle_exit():
     print("👋 Bot shutting down cleanly...")
     loop = asyncio.get_event_loop()
     loop.run_until_complete(bot.close())
+
+signal.signal(signal.SIGINT, lambda sig, frame: handle_exit())
+
+bot.run(DISCORD_TOKEN)
+
 
 signal.signal(signal.SIGINT, lambda sig, frame: handle_exit())
 

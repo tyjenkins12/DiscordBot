@@ -68,18 +68,23 @@ async def on_message(message):
     args = parts[1] if len(parts) > 1 else ''
 
     if command == "join":
-        if message.author.voice:
-            try:
-                channel = message.author.voice.channel
-                vc = await channel.connect()
-                await asyncio.sleep(1)
-                await message.channel.send(f"🎤 Joined {channel}")
-                print(f"[DEBUG] Voice connected: {vc.is_connected()}")
-            except Exception as e:
-                print(f"[ERROR] Join failed: {e}")
-                await message.channel.send("❌ Failed to join voice channel.")
-        else:
-            await message.channel.send("You're not in a voice channel.")
+    if message.author.voice:
+        try:
+            existing_vc = message.guild.voice_client
+            if existing_vc and existing_vc.is_connected():
+                await message.channel.send("🔁 Already in a voice channel.")
+                return
+
+            channel = message.author.voice.channel
+            vc = await channel.connect()
+            await asyncio.sleep(1.5)  # Delay helps prevent race conditions
+            await message.channel.send(f"🎤 Joined {channel}")
+            print(f"[DEBUG] Voice connected: {vc.is_connected()}")
+        except Exception as e:
+            print(f"[ERROR] Join failed: {e}")
+            await message.channel.send("❌ Failed to join voice channel.")
+    else:
+        await message.channel.send("You're not in a voice channel.")
 
     elif command == "leave":
         vc = message.guild.voice_client
@@ -96,26 +101,33 @@ async def on_message(message):
             await message.channel.send("I'm not in a voice channel.")
 
     elif command == "play":
-        if not args:
-            await message.channel.send("Please provide a song name or YouTube URL.")
-            return
+    if not args:
+        await message.channel.send("Please provide a song name or YouTube URL.")
+        return
 
-        vc = message.guild.voice_client
-        if not vc:
-            if message.author.voice:
-                channel = message.author.voice.channel
+    vc = message.guild.voice_client
+    if not vc or not vc.is_connected():
+        if message.author.voice:
+            channel = message.author.voice.channel
+            try:
+                if vc:
+                    await vc.disconnect()  # Clean up broken state if needed
                 vc = await channel.connect()
-                await asyncio.sleep(1)
+                await asyncio.sleep(1.5)  # Allow connection to settle
                 await message.channel.send(f"🎤 Joined {channel}")
-            else:
-                await message.channel.send("You're not in a voice channel.")
+            except Exception as e:
+                print(f"[ERROR] Voice connection failed: {e}")
+                await message.channel.send("❌ Failed to join voice channel.")
                 return
-
-        if not vc.is_connected():
-            await message.channel.send("❌ Voice connection failed.")
+        else:
+            await message.channel.send("You're not in a voice channel.")
             return
 
-        await message.channel.send(f"🔍 Searching: {args}")
+    if not vc.is_connected():
+        await message.channel.send("❌ Voice connection failed.")
+        return
+
+    await message.channel.send(f"🔍 Searching: {args}")
         try:
             with yt_dlp.YoutubeDL(yt_opts) as ydl:
                 info = ydl.extract_info(args, download=False)
